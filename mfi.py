@@ -14,8 +14,8 @@ class MPower:
             self.login()
 
     def login(self):
-        post_data = {"uri": "mfi/sensors.cgi", "username": "admin",
-                     "password": "TestPass"}
+        post_data = {"uri": "mfi/sensors.cgi", "username": self.user,
+                     "password": self.passwd}
         headers = {"Expect": ""}
         self.session.post((self.url + "/login.cgi"),
                           headers=headers, data=post_data,
