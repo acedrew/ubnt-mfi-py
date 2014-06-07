@@ -1,17 +1,17 @@
 import requests
 
 
-class MPower:
-    """Provides an interface to a single mPower Device"""
+class MfiDevice:
+    """Base class for all mFi devices"""
+    def __init__(self,  url, user, passwd):
 
-    def __init__(self,  url=None, user=None, passwd=None):
-        if user is not None and passwd is not None and url is not None:
-            self.url = url
-            self.user = user
-            self.passwd = passwd
-            self.session = requests.Session()
-            self.session.get(url)
-            self.login()
+        """Provide a url to the mpower device, a username, and a password"""
+        self.url = url
+        self.user = user
+        self.passwd = passwd
+        self.session = requests.Session()
+        self.session.get(url)
+        self.login()
 
     def login(self):
         post_data = {"uri": "mfi/sensors.cgi", "username": self.user,
@@ -23,4 +23,23 @@ class MPower:
 
     def get_data(self):
         r = self.session.get((self.url + "/mfi/sensors.cgi"))
-        return r.json()
+        self.data = r.json()
+        return self.data
+
+
+class MPower(MfiDevice):
+    """Provides an interface to a single mPower Device"""
+
+    def get_power(self, port_no):
+        self.get_data()
+        try:
+            return self.data["sensors"][port_no - 1]["power"]
+        except(KeyError, IndexError):
+            print("Port #" + str(port_no) + " does not exist on this device")
+
+
+class MPort(MfiDevice):
+    """Provides an API to a single mPort Device"""
+
+    def get_temperature(self, format='c'):
+        self.get_data()
