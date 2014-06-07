@@ -4,14 +4,15 @@ import time
 
 class MfiDevice:
     """Base class for all mFi devices"""
-    def __init__(self,  url, user, passwd):
+    def __init__(self,  url, user, passwd, cache_timeout=2000):
 
         """Provide a url to the mpower device, a username, and a password"""
         self.url = url
         self.user = user
         self.passwd = passwd
-        self.session = requests.Session()
+        self.cache_timeout = cache_timeout
         self.data_retrieved = 0
+        self.session = requests.Session()
         #This get is necessary to set a cookie in the session prior to trying
         #to login might be better to stick it in the login method itself
         self.session.get(url)
@@ -26,7 +27,7 @@ class MfiDevice:
                           allow_redirects=True)
 
     def get_data(self):
-        if (time.time() - self.data_retrieved) > 2000:
+        if (time.time() - self.data_retrieved) > self.cache_timeout:
             r = self.session.get((self.url + "/mfi/sensors.cgi"))
             self.data_retrieved = time.time()
             self.data = r.json()
@@ -36,12 +37,29 @@ class MfiDevice:
 class MPower(MfiDevice):
     """Provides an interface to a single mPower Device"""
 
-    def get_power(self, port_no):
+    def get_param(self, port_no, param):
         self.get_data()
         try:
-            return self.data["sensors"][port_no - 1]["power"]
+            return self.data["sensors"][port_no - 1][param]
         except(KeyError, IndexError):
             print("Port #" + str(port_no) + " does not exist on this device")
+
+    def get_power(self, port_no):
+        return self.get_param(port_no, 'power')
+
+    def switch(self, port_no, state="toggle"):
+        if state == "toggle":
+            current_state = self.get_param(port_no, 'output')
+            if current_state:
+                next_state = 0
+            else:
+                next_state = 1
+        else:
+            if int(state) == 0 or int(state) == 1:
+                next_state = int(state)
+        data = {"output": str(next_state)}
+        self.session.put((self.url + "/sensors/" + str(port_no) + "/"),
+                         data=data)
 
 
 class MPort(MfiDevice):
@@ -60,4 +78,4 @@ class MPort(MfiDevice):
                 raise IndexError
         except(IndexError):
             print("Sorry port #" + str(port_no) +
-                    " either does not exist or is not a Temperature Sensor")
+                  " either does not exist or is not a Temperature Sensor")
