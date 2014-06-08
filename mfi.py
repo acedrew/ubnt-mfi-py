@@ -1,9 +1,16 @@
 import requests
 import time
 from collections import defaultdict
+from collections import Mapping, Set, Sequence
 
 
 class UbntConfig:
+
+    def __init__(self, config):
+        self.config = self.parse_config(config)
+        self.string_types = (str, unicode) if str is bytes else (str, bytes)
+        self.iteritems = lambda mapping: getattr(
+            mapping, 'iteritems', mapping.items)()
 
     def parse_line(self, line_string, data):
         Tree = lambda: defaultdict(Tree)
@@ -34,8 +41,55 @@ class UbntConfig:
                 continue
             data = self.parse_line(line, data)
 
-        self.config = data
         return data
+
+    def get_crontab(self):
+        if self.config['cron']['status'] == 'enabled':
+            return self.config['cron']['items'][0]['job']['items']
+
+    def add_cronjob(self, schedule, status, cmd, label):
+        self.config['cron']['items'][0]['job']['items'].append(
+            {'schedule': schedule, 'status': status, 'cmd': cmd,
+                'label': label})
+        return self.config['cron']['items'][0]['job']['items']
+
+    def flatten_config(self, obj, path=(), memo=None):
+        if memo is None:
+            memo = set()
+        iterator = None
+        if isinstance(obj, Mapping):
+            iterator = self.iteritems
+        elif isinstance(obj, (Sequence, Set)) and not isinstance(
+                obj, self.string_types):
+            iterator = enumerate
+        if iterator:
+            if id(obj) not in memo:
+                memo.add(id(obj))
+                for path_component, value in iterator(obj):
+                    if path_component == 'items':
+                        for result in self.flatten_config(value, path, memo):
+                            yield result
+                    else:
+                        try:
+                            i = int(path_component)
+                            path_component = str(i + 1)
+                        except:
+                            pass
+                        for result in self.flatten_config(
+                                value, path + (path_component,), memo):
+                            yield result
+                memo.remove(id(obj))
+        else:
+            yield path, obj
+
+    def get_config_dump(self):
+        flat = self.flatten_config(self.config)
+        print(flat)
+        lines = ['.'.join(path) + '=' + str(value) for path, value in flat]
+        return '\n'.join(lines)
+
+    def get_config(self):
+        return self.config
 
 
 class MfiDevice:
@@ -71,10 +125,11 @@ class MfiDevice:
 
     def get_cfg(self):
         r = self.session.get(self.url + "/cfg.cgi")
-        return r.text
+        self.config = UbntConfig(r.text)
+        return self.config
 
-    def set_cfg(self, config):
-        files = {'file': ('config.cfg', config)}
+    def set_cfg(self, config_string):
+        files = {'file': ('config.cfg', config_string)}
         p = self.session.post((self.url + "/system.cgi"), files=files)
         return p.text
 

@@ -47,7 +47,27 @@ def parse_config(conf):
 
     return data
 
-config = mfi.UbntConfig()
-print(json.dumps(config.parse_config(config_text), indent=2))
+
+def output_conf(item, items=None, lines=None):
+    if items is None:
+        items = []
+    if lines is None:
+        lines = []
+    if isinstance(item, defaultdict):
+        for key, value in item.items():
+            items.append(key)
+            return output_conf(value, items, lines)
+    elif isinstance(item, list):
+        for value in item:
+            items.append(1)
+            return output_conf(value, items, lines)
+    else:
+        items.append('=')
+        items.append(item)
+        lines.append(items)
+        print(lines)
+        return output_conf(item, items, lines)
 
 
+config = mfi.UbntConfig(config_text)
+print(config.get_config_dump())
