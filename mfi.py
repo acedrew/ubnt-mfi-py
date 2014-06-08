@@ -1,5 +1,41 @@
 import requests
 import time
+from collections import defaultdict
+
+
+class UbntConfig:
+
+    def parse_line(self, line_string, data):
+        Tree = lambda: defaultdict(Tree)
+        path, val = line_string.split('=')
+        fields = path.split('.')
+        prop = fields.pop()
+        obj = data
+        for f in fields:
+            if f.isdigit():
+                items = obj.setdefault('items', [])
+                idx = int(f) - 1
+                while len(items) < idx + 1:
+                    items.append(Tree())
+                obj = items[idx]
+            else:
+                obj = obj[f]
+
+        obj[prop] = val
+        return data
+
+    def parse_config(self, conf):
+        Tree = lambda: defaultdict(Tree)
+
+        data = Tree()
+
+        for line in conf.splitlines():
+            if not line:
+                continue
+            data = self.parse_line(line, data)
+
+        self.config = data
+        return data
 
 
 class MfiDevice:
@@ -32,6 +68,15 @@ class MfiDevice:
             self.data_retrieved = time.time()
             self.data = r.json()
         return self.data
+
+    def get_cfg(self):
+        r = self.session.get(self.url + "/cfg.cgi")
+        return r.text
+
+    def set_cfg(self, config):
+        files = {'file': ('config.cfg', config)}
+        p = self.session.post((self.url + "/system.cgi"), files=files)
+        return p.text
 
 
 class MPower(MfiDevice):
