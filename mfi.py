@@ -46,6 +46,14 @@ class UbntConfig:
     def get_ntp(self):
         if self.config['ntpclient']['status'] == 'enabled':
             return self.config['ntpclient']['items'][0]
+        else:
+            return "ntpclient not enabled"
+
+    def set_ntp(self, ntp_server):
+        self.config['ntpclient']['status'] = 'enabled'
+        self.config['ntpclient']['items'][0]['status'] = 'enabled'
+        self.config['ntpclient']['items'][0]['server'] = ntp_server
+
 
     def get_crontab(self):
         if self.config['cron']['status'] == 'enabled':
