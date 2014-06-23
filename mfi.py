@@ -54,7 +54,6 @@ class UbntConfig:
         self.config['ntpclient']['items'][0]['status'] = 'enabled'
         self.config['ntpclient']['items'][0]['server'] = ntp_server
 
-
     def get_crontab(self):
         if self.config['cron']['status'] == 'enabled':
             return self.config['cron']['items'][0]['job']['items']
@@ -106,7 +105,7 @@ class UbntConfig:
 
 class MfiDevice:
     """Base class for all mFi devices"""
-    def __init__(self,  url, user, passwd, cache_timeout=2000):
+    def __init__(self,  url, user, passwd, cache_timeout=2):
 
         """Provide a url to the mpower device, a username, and a password"""
         self.url = url
@@ -135,6 +134,22 @@ class MfiDevice:
             self.data = r.json()
         return self.data
 
+    def get_sensor(self, port_no):
+        self.get_data()
+        try:
+            return self.data["sensors"][port_no - 1]
+        except(KeyError, IndexError):
+            print("Port #" + str(port_no) + " does not exist on this device")
+            raise
+
+    def get_param(self, port_no, param):
+        try:
+            sensor = self.get_sensor(port_no)
+            return sensor[param]
+        except(KeyError, IndexError):
+            print("Port #" + str(port_no) + " does not have parameter: "
+                  + param)
+
     def get_cfg(self):
         r = self.session.get(self.url + "/cfg.cgi")
         self.config = UbntConfig(r.text)
@@ -148,13 +163,6 @@ class MfiDevice:
 
 class MPower(MfiDevice):
     """Provides an interface to a single mPower Device"""
-
-    def get_param(self, port_no, param):
-        self.get_data()
-        try:
-            return self.data["sensors"][port_no - 1][param]
-        except(KeyError, IndexError):
-            print("Port #" + str(port_no) + " does not exist on this device")
 
     def get_power(self, port_no):
         return self.get_param(port_no, 'power')
@@ -178,9 +186,8 @@ class MPort(MfiDevice):
     """Provides an API to a single mPort Device"""
 
     def get_temperature(self, port_no, temp_format='c'):
-        self.get_data()
         try:
-            sensor = self.data['sensors'][port_no - 1]
+            sensor = self.get_sensor(port_no)
             if "model" in sensor and sensor['model'] == 'Ubiquiti mFi-THS':
                 if temp_format == "c":
                     return sensor['analog'] * 30 - 10
