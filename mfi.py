@@ -170,10 +170,7 @@ class MPower(MfiDevice):
     def switch(self, port_no, state="toggle"):
         if state == "toggle":
             current_state = self.get_param(port_no, 'output')
-            if current_state:
-                next_state = 0
-            else:
-                next_state = 1
+            next_state = not current_state
         else:
             if int(state) == 0 or int(state) == 1:
                 next_state = int(state)
